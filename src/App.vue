@@ -90,7 +90,7 @@ export default {
   methods: {
     fetchData () {
       let self = this
-      this.$http.get('/static/data.json')
+      this.$http.get('./static/data.json')
       .then(function (response) {
         let result = response.data
         if (result.error === 0) {
