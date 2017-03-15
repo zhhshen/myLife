@@ -5,21 +5,20 @@
         <div class="wbd_card">
         	<div class="intro_hd">
         		<h1 class="intro_title">
-        			音乐猜猜猜
+        			飞雪连天射白鹿 <br>
+              笑书神侠倚碧鸳
         		</h1>
         		<p class="intro_desc">
-        			新歌不断
+              金大侠江湖急急如律令
         			<br>
+              60秒带你笑傲江湖
         		</p>
         	</div>
         	<div class="intro_bd">
         		<p class="intro_slogan">
-        			“快问快打大考验”
-        			<br>
-        			快来测测你的音乐水平！
         		</p>
         		<a ontouchstart="" href="javascript:" class="intro_start wbd_btn" @click="start">
-        			我要测
+        			快意恩仇
         		</a>
         	</div>
         </div>
@@ -32,11 +31,12 @@
               <p class="question_title">{{item.title}}</p>
             </div>
             <div class="question_bd">
-              <a class="question_answer" ontouchstart="" href="javascript:" @click="answerQuestion(subItem.type, item.success, item.ID)" v-for="(subItem, index) in item.questions" data-idx="0">
+              <a class="question_answer" :class="{ success: item.reply ? (subItem.type === item.success ? true : false) : false }" ontouchstart="" href="javascript:" @click="answerQuestion(subItem.type, item.success, item.ID, item.reply)" v-for="(subItem, index) in item.questions" data-idx="0">
                 <span class="question_answer_bg"></span>
                 <span class="question_answer_text">{{subItem.type}}    {{subItem.text}}</span>
               </a>
             </div>
+            <p v-if="item.reply">点击正确答案查看下一题</p>
             <span class="question_ft"> {{ index }} / {{ pagesLen }}</span>
           </div>
         </div>
@@ -46,24 +46,28 @@
           <div class="wbd_card">
           	<div class="intro_hd">
           		<h1 class="intro_title">
-          			测试分数
+          			测试时间{{60 - spendTime}}S
           		</h1>
           		<p class="intro_desc">
+                测试分数：{{cacheCorrect.length}}分
           		</p>
           	</div>
           	<div class="intro_bd">
           		<p class="intro_slogan">
-          			“我的分数”
-          			<br>
-          			{{cacheCorrect.length}}分
+                <a ontouchstart="" href="">
+            			重新测试
+            		</a>
           		</p>
-          		<a ontouchstart="" href="" class="intro_start wbd_btn">
-          			关注我
+          		<a ontouchstart="" @click="checkReply" class="intro_start wbd_btn">
+          			查看答案
           		</a>
           	</div>
           </div>
         </div>
       </div>
+    </div>
+    <div class="count-down">
+      <canvas id="canvasId" width="256" height="256" v-show="timerVisible"></canvas>
     </div>
   </div>
 </template>
@@ -76,11 +80,15 @@ export default {
       introStyle: '',
       introVisible: true,
       resultVisible: true,
+      timerVisible: true,
       resultStyle: '',
       pages: [],
+      cachePages: null,
       cache: [],
       pagesLen: 0,
       cacheCorrect: [],
+      timer: null,
+      spendTime: 0, // 花费的时间
       lastId: null // 第一道题的id
     }
   },
@@ -96,11 +104,12 @@ export default {
         if (result.error === 0) {
           result.data.map(function (item) {
             item.styObj = ''
+            item.reply = false
           })
           self.$set(self, 'pages', result.data)
+          self.$set(self, 'cachePages', result.data)
           self.pagesLen = result.data.length
           self.lastId = result.data[self.pagesLen - 1].ID
-          console.log(self.lastId)
         }
       })
       .catch(function (error) {
@@ -109,25 +118,107 @@ export default {
     },
     start () {
       this.introStyle = 'magicRotate'
-      // this.introVisible = false
+      this.startCountDown()
     },
-    answerQuestion (currentId, realId, id) {
-      if (currentId === realId) {
-        // 缓存答案
-        this.cacheCorrect.push('true')
-      }
-      // 将数组第一个元素放到最后
+    answerQuestion (currentId, realId, id, reply) {
       let selectData = this.pages.find(function (item) {
         return item.ID === id
       })
       selectData.styObj = 'magicRotate'
       this.$set(self, 'pages', this.pages)
+      if (reply) {
+        return false
+      }
+      if (currentId === realId) {
+        // 缓存答案
+        this.cacheCorrect.push('true')
+      }
       // 最后一个元素，选完打卡下班
       if (id === this.lastId) {
         this.resultStyle = 'magic'
+        // 清除计时器
+        clearInterval(this.timer)
+        this.timerVisible = false
       }
       // let remove_element = this.pages.shift()
       // this.pages.push(remove_element)
+    },
+    // 开启倒计时
+    startCountDown () {
+      let self = this
+      let canvas = document.getElementById('canvasId')
+      let context = canvas.getContext('2d') // 获取画图环境，指明为2d
+      let centerX = canvas.width / 2 // Canvas中心点x轴坐标
+      let centerY = canvas.height / 2 // Canvas中心点y轴坐标
+      // let radius = canvas.width / 2
+      let countDownSeconds = 60 // 计时器秒杀 (可修改)
+      let rad = Math.PI * 2 / countDownSeconds  // 将360度分成countDownSeconds份，那么每一份就是rad度
+      let currentSeconds = 60  // 加载的快慢就靠它了
+      // 绘制蓝色外圈
+      function blueCircle(currentSeconds){
+        let progress = 360 * currentSeconds / countDownSeconds
+        let progress_pi = Math.PI * (progress / 180 - 1 / 2)
+        context.save()
+        context.strokeStyle = "#28A4FC" // 设置描边样式
+        context.lineWidth = 4 // 设置线宽
+        context.beginPath() // 路径开始
+        context.arc(centerX, centerY, 70 , -Math.PI / 2, progress_pi, false) // 用于绘制圆弧context.arc(x坐标，y坐标，半径，起始角度，终止角度，顺时针/逆时针)
+        context.lineCap = 'round'
+        context.stroke() // 绘制
+        context.closePath() // 路径结束
+        context.restore()
+      }
+      // 绘制白色外圈
+      function whiteCircle(){
+        context.save()
+        context.beginPath()
+        context.strokeStyle = "white"
+        context.arc(centerX, centerY, 70 , 0, Math.PI * 2, true)
+        context.stroke()
+        context.closePath()
+        context.restore()
+      }
+      // 内部文字绘制
+      function text(n){
+        context.save() // save和restore可以保证样式属性只运用于该段canvas元素
+        context.strokeStyle = "#fff" // 设置描边样式
+        context.font = "40px Arial" // 设置字体大小和字体
+        context.textAlign = "center"
+        context.textBaseline = 'middle'
+        //绘制字体，并且指定位置
+        context.fillText(n + "S", centerX, centerY)
+        // 抗锯齿
+        context.globalCompositeOperation = 'source-atop'
+        context.stroke() //执行绘制
+        context.restore()
+      }
+      //动画循环
+      self.timer = setInterval(function () {
+        self.spendTime = currentSeconds
+        if(currentSeconds <= 0) {
+          currentSeconds = 0
+          clearInterval(self.timer)
+          self.timerVisible = false
+          self.pages.map(function (item) {
+            item.styObj = 'magicRotate'
+          })
+          self.$set(self, 'pages', self.pages)
+          self.resultStyle = 'magic'
+        }
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        whiteCircle()
+        text(currentSeconds)
+        blueCircle(currentSeconds)
+        currentSeconds--
+      }, 1000)
+    },
+    // 查看答案
+    checkReply () {
+      this.pages.map(function (item) {
+        item.styObj = ''
+        item.reply = true
+      })
+      this.$set(this, 'pages', this.pages)
     }
   }
 }
@@ -137,6 +228,7 @@ export default {
 @import "./assets/less/index.less";
 #app {
   min-width: 320px;
+  max-width: 640px;
   position: absolute;
   top: 0;
   right: 0;
@@ -145,6 +237,7 @@ export default {
   padding-bottom: 0;
   font-size: 14px;
   overflow: hidden;
+  margin: 0 auto;
 }
 .f7-wrapper {
   .f7-page {
@@ -203,7 +296,7 @@ export default {
       .question_hd{
         position: relative;
         height: 92px;
-        padding: 4px 24px 0 56px;
+        padding: 4px 24px 0 36px;
         margin-bottom: 8px;
         background-image: linear-gradient(to right,#28A4FC 0,#2D9FFD 100%);
         filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#FF28A4FC', endColorstr='#FF2D9FFD', GradientType=1);
@@ -221,7 +314,7 @@ export default {
       }
       .question_title {
           color: #fff;
-          font-size: 16px;
+          font-size: 14px;
           display: table-cell;
           height: 92px;
           vertical-align: middle;
@@ -230,7 +323,8 @@ export default {
           font-family: "PingFang SC"
       }
       .question_bd {
-          padding-bottom: 12px
+          padding-bottom: 12px;
+          min-height: 236px;
       }
       .question_answer {
           position: relative;
@@ -240,6 +334,9 @@ export default {
           font-size: 16px;
           overflow: hidden;
           color: #5d646e;
+          &.success {
+            color: #2990e4;
+          }
       }
       .question_answer_bg {
           position: absolute;
@@ -281,6 +378,21 @@ export default {
     }
   }
 }
+.count-down{
+  position: absolute;
+  bottom: 0;
+  /* top: 0; */
+  left: 0;
+  right: 0;
+  height: 30%;
+}
+canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
 .magicRotate {
   transform-origin: 100% 200%;
   transform: scale(1,1) rotate(-270deg);
@@ -290,6 +402,7 @@ export default {
 .magic {
   animation-name: magic;
   animation-duration: 2s;
+  animation-delay: 1s;
   animation-fill-mode: both
 }
 @-webkit-keyframes magic {
@@ -306,6 +419,37 @@ export default {
   }
   100% {
     opacity: 1;
+  }
+}
+@media screen and (max-height: 480px) {
+  .f7-wrapper {
+    .f7-page {
+      .wbd_card {
+        .question_hd {
+          height: 70px;
+          .question_index {
+            line-height: 70px;
+            font-size: 44px;
+          }
+          .question_title {
+            height: 70px;
+            font-size: 12px;
+          }
+        }
+        .question_bd {
+          min-height: 176px;
+          .question_answer {
+            height: 40px;
+            .question_answer_text {
+              height: 40px;
+            }
+          }
+        }
+        .intro_title {
+          padding-top: 80px;
+        }
+      }
+    }
   }
 }
 </style>
